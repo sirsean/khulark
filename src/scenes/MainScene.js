@@ -21,14 +21,14 @@ export default class MainScene extends Phaser.Scene {
     const stats = this.gameState.getKhularkStats();
 
     // Background color
-    this.cameras.main.setBackgroundColor('#0a0a0a');
+    this.cameras.main.setBackgroundColor('#e8dcc8');
 
     // Add title
     this.add.text(width / 2, 50, 'KHULARK', {
       font: 'bold 40px monospace',
-      fill: '#ffa500',
+      fill: '#d97706',
       stroke: '#000',
-      strokeThickness: 4
+      strokeThickness: 3
     }).setOrigin(0.5);
 
     // Create stat bars
