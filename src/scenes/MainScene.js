@@ -10,6 +10,8 @@ export default class MainScene extends Phaser.Scene {
     this.statBars = {};
     this.lastFeedTime = 0;
     this.lastPetTime = 0;
+    this.decayTimer = null;
+    this.lastDecayTime = Date.now();
   }
 
   create() {
@@ -54,6 +56,65 @@ export default class MainScene extends Phaser.Scene {
     window.addEventListener('beforeunload', () => {
       this.gameState.save();
     });
+
+    // Start passive decay timer (updates every 10 seconds)
+    this.startPassiveDecay();
+  }
+
+  startPassiveDecay() {
+    // Update stats every 10 seconds
+    this.decayTimer = this.time.addEvent({
+      delay: 10000, // 10 seconds
+      callback: this.applyPassiveDecay,
+      callbackScope: this,
+      loop: true
+    });
+  }
+
+  applyPassiveDecay() {
+    const now = Date.now();
+    const elapsedMs = now - this.lastDecayTime;
+    const elapsedHours = elapsedMs / (1000 * 60 * 60);
+
+    // Decay rates per hour (same as GameState)
+    const HUNGER_DECAY = 10;
+    const AFFECTION_DECAY = 5;
+    const SANITY_DECAY = 3;
+
+    // Calculate decay amounts
+    const hungerDecay = HUNGER_DECAY * elapsedHours;
+    const affectionDecay = AFFECTION_DECAY * elapsedHours;
+    const sanityDecay = SANITY_DECAY * elapsedHours;
+
+    // Apply decay (negative values to decrease)
+    this.gameState.modifyStat('hunger', -hungerDecay);
+    this.gameState.modifyStat('affection', -affectionDecay);
+    this.gameState.modifyStat('sanity', -sanityDecay);
+
+    // Update UI
+    const stats = this.gameState.getKhularkStats();
+    this.updateStatBars(stats);
+    this.updateKhularkSprite(stats.hunger);
+
+    // Update last decay time
+    this.lastDecayTime = now;
+  }
+
+  shutdown() {
+    // Clean up timer when scene is destroyed
+    if (this.decayTimer) {
+      this.decayTimer.remove();
+      this.decayTimer = null;
+    }
+  }
+
+  destroy() {
+    // Clean up timer when scene is destroyed
+    if (this.decayTimer) {
+      this.decayTimer.remove();
+      this.decayTimer = null;
+    }
+    super.destroy();
   }
 
   createStatBars(width, stats) {
@@ -79,7 +140,7 @@ export default class MainScene extends Phaser.Scene {
 
       // Bar background
       const barBg = this.add.graphics();
-      barBg.fillStyle(0xccbaa8, 1);
+      barBg.fillStyle(0xe8dcc8, 1);
       barBg.fillRect(width / 2 - barWidth / 2, y, barWidth, barHeight);
 
       // Bar fill

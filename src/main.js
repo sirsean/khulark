@@ -13,7 +13,7 @@ const config = {
     autoCenter: Phaser.Scale.CENTER_BOTH
   },
   scene: [BootScene, PreloadScene, MainScene],
-  backgroundColor: '#e8dcc8'
+  backgroundColor: '#F9F1EA'
 };
 
 const game = new Phaser.Game(config);
