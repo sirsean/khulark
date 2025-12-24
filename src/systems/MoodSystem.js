@@ -14,6 +14,18 @@ export default class MoodSystem {
     }
   }
 
+  static getBackgroundColor(bodyState) {
+    // Background colors extracted from sprite images
+    const colorMap = {
+      'superfull': '#FDF3ED',  // Very bright warm cream/pink tint
+      'fed': '#F8F1E9',        // Light warm cream
+      'normal': '#F4ECDC',     // Baseline cream/beige
+      'hungry': '#F6EFE8',     // Light neutral cream
+      'starving': '#F8F0EA'    // Light warm beige
+    };
+    return colorMap[bodyState] || '#F4ECDC';
+  }
+
   static getSpriteKey(bodyState) {
     const spriteMap = {
       'superfull': 'khulark-superfull',

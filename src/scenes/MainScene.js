@@ -19,6 +19,7 @@ export default class MainScene extends Phaser.Scene {
     this.idleTimer = null;
     this.buttons = {};
     this.lastMoodCheck = Date.now();
+    this.currentBackgroundColor = null;
   }
 
   create() {
@@ -34,8 +35,11 @@ export default class MainScene extends Phaser.Scene {
     this.audioManager = new AudioManager(this, this.gameState);
     this.audioManager.init();
 
-    // Background color
-    this.cameras.main.setBackgroundColor('#F9F1EA');
+    // Set initial background color based on body state
+    const bodyState = MoodSystem.determineBodyState(stats.hunger);
+    const bgColor = MoodSystem.getBackgroundColor(bodyState);
+    this.currentBackgroundColor = bgColor;
+    this.cameras.main.setBackgroundColor(bgColor);
 
     // Add title
     this.add.text(width / 2, 50, 'KHULARK', {
@@ -49,7 +53,6 @@ export default class MainScene extends Phaser.Scene {
     this.createStatBars(width, stats);
 
     // Create khulark sprite in center
-    const bodyState = MoodSystem.determineBodyState(stats.hunger);
     const spriteKey = MoodSystem.getSpriteKey(bodyState);
     this.khularkSprite = this.add.image(width / 2, height / 2, spriteKey);
     this.khularkSprite.setScale(0.5); // Adjust scale as needed
@@ -505,6 +508,9 @@ export default class MainScene extends Phaser.Scene {
     if (this.khularkSprite.texture.key !== spriteKey) {
       this.khularkSprite.setTexture(spriteKey);
       this.gameState.setBodyState(bodyState);
+      
+      // Transition background color to match new state
+      this.transitionBackgroundColor(bodyState);
     }
   }
 
@@ -699,6 +705,62 @@ export default class MainScene extends Phaser.Scene {
       duration: duration,
       onComplete: () => flash.destroy()
     });
+  }
+
+  transitionBackgroundColor(bodyState) {
+    const targetColor = MoodSystem.getBackgroundColor(bodyState);
+    
+    // Skip if already at target color
+    if (this.currentBackgroundColor === targetColor) return;
+    
+    // Parse hex colors to RGB
+    const fromRGB = this.hexToRgb(this.currentBackgroundColor);
+    const toRGB = this.hexToRgb(targetColor);
+    
+    if (!fromRGB || !toRGB) return;
+    
+    // Create temp object for tweening
+    const colorTween = { r: fromRGB.r, g: fromRGB.g, b: fromRGB.b };
+    
+    this.tweens.add({
+      targets: colorTween,
+      r: toRGB.r,
+      g: toRGB.g,
+      b: toRGB.b,
+      duration: 1200,
+      ease: 'Cubic.easeInOut',
+      onUpdate: () => {
+        const r = Math.round(colorTween.r);
+        const g = Math.round(colorTween.g);
+        const b = Math.round(colorTween.b);
+        const hexColor = this.rgbToHex(r, g, b);
+        this.cameras.main.setBackgroundColor(hexColor);
+      },
+      onComplete: () => {
+        this.currentBackgroundColor = targetColor;
+      }
+    });
+  }
+  
+  hexToRgb(hex) {
+    // Remove # if present
+    hex = hex.replace('#', '');
+    
+    // Parse hex to RGB
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    
+    if (isNaN(r) || isNaN(g) || isNaN(b)) return null;
+    
+    return { r, g, b };
+  }
+  
+  rgbToHex(r, g, b) {
+    return '#' + [r, g, b].map(x => {
+      const hex = x.toString(16);
+      return hex.length === 1 ? '0' + hex : hex;
+    }).join('');
   }
 
   tweenStat(statName, fromValue, toValue) {
