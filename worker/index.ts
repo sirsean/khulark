@@ -98,11 +98,11 @@ async function handleFeedPhoto(request: Request, env: Env): Promise<Response> {
     
     // Fallback response
     const fallbackResponse: FeedResponse = {
-      hunger: 15,
-      affection: 5,
-      sanity: 0,
-      speech: "I... I'm not sure what that was, but thank you for thinking of me.",
-      alertText: 'The khulark cautiously accepts your offering.',
+      hunger: 0,
+      affection: -5,
+      sanity: -10,
+      speech: "I... I don't feel right. Something went wrong with that.",
+      alertText: 'The khulark shudders, clearly unsettled by what just happened.',
     };
 
     return new Response(JSON.stringify(fallbackResponse), {
@@ -133,7 +133,7 @@ IMPORTANT: You MUST choose something from the photo to eat. You are an alien, so
 - Tasty/interesting items: positive hunger, positive affection
 - Boring/unpleasant items: small hunger gain, neutral or negative other stats
 - Dangerous items (sharp, toxic): negative stats, but you still try them
-- The gesture of feeding always matters: never zero affection from the attempt
+- If nothing looks particularly good, affection might be zero or negative, and sanity can decrease
 
 Be creative and playful! Examples:
 - "I nibble the corner of the chair - woody and familiar" (+8 hunger, +5 affection)
@@ -234,11 +234,11 @@ Respond ONLY with valid JSON in this exact format (no markdown, no extra text):
     }
 
     return {
-      hunger: 5,
-      affection: 8,
-      sanity: 2,
-      speech: "I appreciate you thinking of me.",
-      alertText: 'The khulark investigates your offering curiously.',
+      hunger: 0,
+      affection: -3,
+      sanity: -5,
+      speech: "I don't really understand this... it makes me uneasy.",
+      alertText: 'The khulark eyes your offering warily and backs away.',
     };
   }
 }

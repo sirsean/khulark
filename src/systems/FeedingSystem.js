@@ -85,11 +85,11 @@ export default class FeedingSystem {
    */
   getFallbackResponse() {
     return {
-      hunger: 10,
-      affection: 5,
-      sanity: 2,
-      speech: "Thank you for thinking of me.",
-      alertText: "The khulark accepts your offering.",
+      hunger: 0,
+      affection: -5,
+      sanity: -10,
+      speech: "Something feels wrong. I don't like this at all...",
+      alertText: "The khulark recoils from the strange offering.",
     };
   }
 
