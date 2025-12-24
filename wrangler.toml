@@ -2,7 +2,7 @@ name = "khulark"
 compatibility_date = "2025-12-24"
 main = "worker/index.ts"
 
-[env]
+[vars]
 CLOUDFLARE_ACCOUNT_ID = "f400e5cfc5e8cd621a3c3f9264a92bc4"
 
 [assets]
