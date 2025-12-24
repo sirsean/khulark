@@ -3,6 +3,7 @@ import GameState from '../state/GameState.js';
 import MoodSystem from '../systems/MoodSystem.js';
 import ParticleManager from '../systems/ParticleManager.js';
 import AudioManager from '../systems/AudioManager.js';
+import FeedingSystem from '../systems/FeedingSystem.js';
 
 export default class MainScene extends Phaser.Scene {
   constructor() {
@@ -20,6 +21,8 @@ export default class MainScene extends Phaser.Scene {
     this.buttons = {};
     this.lastMoodCheck = Date.now();
     this.currentBackgroundColor = null;
+    this.feedingSystem = null;
+    this.speechBubble = null;
   }
 
   create() {
@@ -34,6 +37,7 @@ export default class MainScene extends Phaser.Scene {
     this.particleManager = new ParticleManager(this);
     this.audioManager = new AudioManager(this, this.gameState);
     this.audioManager.init();
+    this.feedingSystem = new FeedingSystem(this, this.gameState, this.audioManager);
 
     // Set initial background color based on body state
     const bodyState = MoodSystem.determineBodyState(stats.hunger);
@@ -397,27 +401,55 @@ export default class MainScene extends Phaser.Scene {
       return;
     }
 
-    this.lastFeedTime = now;
-    const result = this.gameState.modifyStat('hunger', 20);
-    
-    if (result) {
-      this.tweenStat('hunger', result.oldValue, result.newValue);
-    }
-    
+    // Play click sound
+    this.audioManager.playClick();
+
+    // Launch camera overlay
+    this.scene.launch('CameraOverlay', {
+      onPhoto: (imageBlob) => this.onPhotoTaken(imageBlob),
+    });
+  }
+
+  async onPhotoTaken(imageBlob) {
+    // Set last feed time to start cooldown
+    this.lastFeedTime = Date.now();
+
+    // Upload and process photo
+    const response = await this.feedingSystem.uploadPhoto(imageBlob);
+
+    // Update UI with response
     const stats = this.gameState.getKhularkStats();
+    this.updateStatBars(stats);
     this.updateKhularkSprite(stats.hunger);
-    
-    // Particles and audio
+
+    // Show speech bubble and alert
+    this.showSpeechBubble(response.speech);
+    this.showFeedback(response.alertText, 0xffa500);
+
+    // Animate khulark
+    this.animateKhulark('feed');
+
+    // Show stat changes
     const spriteX = this.khularkSprite.x;
     const spriteY = this.khularkSprite.y;
-    this.particleManager.emitSparkles(spriteX, spriteY, 0xffa500);
-    this.particleManager.emitStatChange(spriteX, spriteY - 80, '+20', '#00ff00');
-    this.audioManager.playFeed();
-    
-    this.animateKhulark('feed');
-    
+    if (response.hunger) {
+      this.particleManager.emitStatChange(spriteX - 30, spriteY - 80, 
+        (response.hunger > 0 ? '+' : '') + response.hunger, 
+        response.hunger > 0 ? '#00ff00' : '#ff6b6b');
+    }
+    if (response.affection) {
+      this.particleManager.emitStatChange(spriteX, spriteY - 90,
+        (response.affection > 0 ? '+' : '') + response.affection,
+        response.affection > 0 ? '#ff69b4' : '#ff6b6b');
+    }
+    if (response.sanity) {
+      this.particleManager.emitStatChange(spriteX + 30, spriteY - 80,
+        (response.sanity > 0 ? '+' : '') + response.sanity,
+        response.sanity > 0 ? '#69b4ff' : '#ff6b6b');
+    }
+
     // Show cooldown
-    this.showButtonCooldown(this.buttons.feed, cooldown);
+    this.showButtonCooldown(this.buttons.feed, 30000);
   }
 
   handlePet() {
@@ -704,6 +736,94 @@ export default class MainScene extends Phaser.Scene {
       alpha: 0,
       duration: duration,
       onComplete: () => flash.destroy()
+    });
+  }
+
+  showSpeechBubble(text) {
+    // Destroy existing speech bubble if any
+    if (this.speechBubble) {
+      this.speechBubble.destroy();
+      this.speechBubble = null;
+    }
+
+    const spriteX = this.khularkSprite.x;
+    const spriteY = this.khularkSprite.y;
+    const bubbleWidth = 400;
+    const bubbleHeight = 120;
+    const bubbleX = spriteX;
+    const bubbleY = spriteY - 150;
+
+    // Create container for speech bubble
+    this.speechBubble = this.add.container(bubbleX, bubbleY);
+    this.speechBubble.setDepth(900);
+
+    // Draw retro-styled speech bubble
+    const bubble = this.add.graphics();
+    
+    // Main bubble body
+    bubble.fillStyle(0x2a2a2a, 1);
+    bubble.fillRoundedRect(-bubbleWidth / 2, -bubbleHeight / 2, bubbleWidth, bubbleHeight, 8);
+    
+    // Border
+    bubble.lineStyle(4, 0xd97706, 1);
+    bubble.strokeRoundedRect(-bubbleWidth / 2, -bubbleHeight / 2, bubbleWidth, bubbleHeight, 8);
+    
+    // Inner border
+    bubble.lineStyle(2, 0x6b5020, 0.8);
+    bubble.strokeRoundedRect(-bubbleWidth / 2 + 4, -bubbleHeight / 2 + 4, bubbleWidth - 8, bubbleHeight - 8, 6);
+    
+    // Pointer to khulark
+    bubble.fillStyle(0x2a2a2a, 1);
+    bubble.fillTriangle(0, bubbleHeight / 2 - 2, -15, bubbleHeight / 2 + 15, 15, bubbleHeight / 2 + 15);
+    bubble.lineStyle(4, 0xd97706, 1);
+    bubble.strokeTriangle(0, bubbleHeight / 2 - 2, -15, bubbleHeight / 2 + 15, 15, bubbleHeight / 2 + 15);
+
+    // Text
+    const speechText = this.add.text(0, 0, text, {
+      font: '18px monospace',
+      fill: '#ffffff',
+      align: 'center',
+      wordWrap: { width: bubbleWidth - 40 },
+    });
+    speechText.setOrigin(0.5);
+
+    // Add to container
+    this.speechBubble.add([bubble, speechText]);
+
+    // Fade in animation
+    this.speechBubble.setAlpha(0);
+    this.tweens.add({
+      targets: this.speechBubble,
+      alpha: 1,
+      duration: 300,
+      ease: 'Cubic.easeOut',
+    });
+
+    // Make interactive to dismiss
+    bubble.setInteractive(
+      new Phaser.Geom.Rectangle(-bubbleWidth / 2, -bubbleHeight / 2, bubbleWidth, bubbleHeight),
+      Phaser.Geom.Rectangle.Contains
+    );
+    bubble.on('pointerdown', () => this.hideSpeechBubble());
+
+    // Auto-dismiss after 5 seconds
+    this.time.delayedCall(5000, () => this.hideSpeechBubble());
+  }
+
+  hideSpeechBubble() {
+    if (!this.speechBubble) return;
+
+    this.tweens.add({
+      targets: this.speechBubble,
+      alpha: 0,
+      duration: 300,
+      ease: 'Cubic.easeIn',
+      onComplete: () => {
+        if (this.speechBubble) {
+          this.speechBubble.destroy();
+          this.speechBubble = null;
+        }
+      },
     });
   }
 

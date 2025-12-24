@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import BootScene from './scenes/BootScene.js';
 import PreloadScene from './scenes/PreloadScene.js';
 import MainScene from './scenes/MainScene.js';
+import CameraOverlay from './scenes/CameraOverlay.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -12,7 +13,7 @@ const config = {
     mode: Phaser.Scale.ENVELOP,
     autoCenter: Phaser.Scale.CENTER_BOTH
   },
-  scene: [BootScene, PreloadScene, MainScene],
+  scene: [BootScene, PreloadScene, MainScene, CameraOverlay],
   backgroundColor: '#EBE2D5' // Default cream color matching normal state
 };
 
