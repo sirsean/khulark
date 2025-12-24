@@ -194,7 +194,7 @@ export default class MainScene extends Phaser.Scene {
         Math.round(stat.value) + '%', {
         font: '14px "FringeV2", monospace',
         fill: '#000000'
-      }).setOrigin(0, 0.5);
+      }).setOrigin(1, 0.5);
 
       this.statBars[stat.name] = { 
         barFill, 
