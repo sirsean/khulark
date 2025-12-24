@@ -1,5 +1,5 @@
 name = "khulark"
-compatibility_date = "2024-12-24"
+compatibility_date = "2025-12-24"
 main = "worker/index.ts"
 
 [assets]
@@ -9,6 +9,8 @@ not_found_handling = "404-page"
 [observability]
 enabled = true
 
-# Development server settings
-[dev]
-port = 8787
+routes = [
+  { pattern = "khulark.sirsean.me", custom_domain = true }
+]
+
+
