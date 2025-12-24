@@ -77,6 +77,7 @@ export default class ParticleManager {
   emitWarningPulse(x, y) {
     const warning = this.scene.add.text(x, y - 60, '!', {
       fontSize: '32px',
+      fontFamily: '"FringeV2", monospace',
       fill: '#ff0000',
       stroke: '#ffffff',
       strokeThickness: 3
@@ -101,6 +102,7 @@ export default class ParticleManager {
   emitStatChange(x, y, text, color = '#00ff00') {
     const statText = this.scene.add.text(x, y, text, {
       fontSize: '20px',
+      fontFamily: '"FringeV2", monospace',
       fill: color,
       stroke: '#000000',
       strokeThickness: 4,

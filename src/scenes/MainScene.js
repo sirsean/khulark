@@ -51,9 +51,10 @@ export default class MainScene extends Phaser.Scene {
     this.currentBackgroundColor = bgColor;
     this.cameras.main.setBackgroundColor(bgColor);
 
-    // Add title
-    this.add.text(width / 2, 50, 'KHULARK', {
-      font: 'bold 40px monospace',
+    // Add title (FringeV2)
+    this.add.text(width / 2, 70, 'KHULARK', {
+      fontFamily: 'FringeV2',
+      fontSize: '42px',
       fill: '#d97706',
       stroke: '#000',
       strokeThickness: 3
@@ -171,9 +172,9 @@ export default class MainScene extends Phaser.Scene {
     statConfig.forEach((stat, index) => {
       const y = startY + (index * spacing);
 
-      // Label
+      // Label (FringeV2 for stats)
       this.add.text(width / 2 - barWidth / 2, y - 20, stat.label, {
-        font: '16px monospace',
+        font: '16px "FringeV2", monospace',
         fill: '#000000'
       });
 
@@ -188,10 +189,10 @@ export default class MainScene extends Phaser.Scene {
       const fillWidth = (stat.value / 100) * barWidth;
       barFill.fillRect(width / 2 - barWidth / 2, y, fillWidth, barHeight);
 
-      // Value text
+      // Value text (FringeV2 for stat values)
       const valueText = this.add.text(width / 2 + barWidth / 2 + 10, y + barHeight / 2, 
         Math.round(stat.value) + '%', {
-        font: '14px monospace',
+        font: '14px "FringeV2", monospace',
         fill: '#000000'
       }).setOrigin(0, 0.5);
 
@@ -236,15 +237,16 @@ export default class MainScene extends Phaser.Scene {
     const cooldownOverlay = this.add.graphics();
     cooldownOverlay.setVisible(false);
 
-    // Cooldown text
+    // Cooldown text (FringeV2)
     const cooldownText = this.add.text(0, 20, '', {
-      font: '12px monospace',
+      font: '12px "FringeV2", monospace',
       fill: '#ffffff'
     }).setOrigin(0.5).setVisible(false);
 
-    // Button text with retro styling
+    // Button text with retro styling (FringeV2)
     const buttonText = this.add.text(0, 0, text, {
-      font: 'bold 24px monospace',
+      fontFamily: 'FringeV2',
+      fontSize: '26px',
       fill: '#ffffff',
       stroke: '#000000',
       strokeThickness: 3
@@ -710,10 +712,13 @@ export default class MainScene extends Phaser.Scene {
   showFeedback(text, color) {
     const width = this.cameras.main.width;
     const feedbackText = this.add.text(width / 2, 350, text, {
-      font: 'bold 20px monospace',
+      fontFamily: 'FringeV2',
+      fontSize: '20px',
       fill: '#' + color.toString(16).padStart(6, '0'),
       stroke: '#000',
-      strokeThickness: 4
+      strokeThickness: 4,
+      align: 'center',
+      wordWrap: { width: width - 120 },
     }).setOrigin(0.5);
     feedbackText.setDepth(950); // Below speech bubble but above most things
 
@@ -895,9 +900,9 @@ export default class MainScene extends Phaser.Scene {
     bubble.lineStyle(4, 0xd97706, 1);
     bubble.strokeTriangle(0, -bubbleHeight / 2 + 2, -15, -bubbleHeight / 2 - 15, 15, -bubbleHeight / 2 - 15);
 
-    // Text
+    // Text (FringeV2 for speech)
     const speechText = this.add.text(0, 0, text, {
-      font: '18px monospace',
+      font: '18px "FringeV2", monospace',
       fill: '#ffffff',
       align: 'center',
       wordWrap: { width: bubbleWidth - 40 },

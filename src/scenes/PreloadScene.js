@@ -16,13 +16,13 @@ export default class PreloadScene extends Phaser.Scene {
     progressBox.fillRect(width / 2 - 160, height / 2 - 30, 320, 50);
     
     const loadingText = this.add.text(width / 2, height / 2 - 50, 'Loading...', {
-      font: '20px monospace',
+      font: '20px "FringeV2", monospace',
       fill: '#ffffff'
     });
     loadingText.setOrigin(0.5, 0.5);
     
     const percentText = this.add.text(width / 2, height / 2, '0%', {
-      font: '18px monospace',
+      font: '18px "FringeV2", monospace',
       fill: '#ffffff'
     });
     percentText.setOrigin(0.5, 0.5);

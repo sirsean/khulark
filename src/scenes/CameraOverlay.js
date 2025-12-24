@@ -36,7 +36,8 @@ export default class CameraOverlay extends Phaser.Scene {
 
     // Title
     this.add.text(width / 2, 50, 'FEED CAMERA', {
-      font: 'bold 32px monospace',
+      fontFamily: 'FringeV2',
+      fontSize: '32px',
       fill: '#d97706',
       stroke: '#000',
       strokeThickness: 3,
@@ -123,9 +124,10 @@ export default class CameraOverlay extends Phaser.Scene {
     const bg = this.add.graphics();
     this.drawButton(bg, width, height, color);
 
-    // Button text
+    // Button text - match FEED button style (FringeV2, 16px, no bold)
     const buttonText = this.add.text(0, 0, text, {
-      font: 'bold 20px monospace',
+      fontFamily: 'FringeV2',
+      fontSize: '16px',
       fill: '#ffffff',
       stroke: '#000000',
       strokeThickness: 3,
@@ -150,19 +152,116 @@ export default class CameraOverlay extends Phaser.Scene {
   }
 
   drawButton(bg, width, height, color, alpha = 1.0) {
-    // Base
-    bg.fillStyle(color, alpha);
+    // Match FEED button's weathered metal style
+    bg.clear();
+
+    // Base metal color (darker)
+    const baseColor = this.darkenColor(color, 0.3);
+    bg.fillStyle(baseColor, alpha);
     bg.fillRect(-width / 2, -height / 2, width, height);
-    
-    // Border
-    bg.lineStyle(4, 0x1a1a1a, 1);
+
+    // Main button body with slight gradient effect (lighter center)
+    bg.fillStyle(color, alpha);
+    bg.fillRect(-width / 2 + 4, -height / 2 + 4, width - 8, height - 8);
+
+    // Add weathering/patina spots
+    this.addWeathering(bg, width, height, alpha);
+
+    // Chunky outer border (dark metal edge)
+    bg.lineStyle(5, 0x1a1a1a, 1);
     bg.strokeRect(-width / 2, -height / 2, width, height);
-    
-    // Highlight
+
+    // Inner worn edge (lighter, showing wear)
+    bg.lineStyle(1, 0x4a3820, alpha * 0.8);
+    bg.strokeRect(-width / 2 + 3, -height / 2 + 3, width - 6, height - 6);
+
+    // Highlight edge (top-left, simulating light)
     bg.lineStyle(2, 0xd4a574, alpha * 0.5);
     bg.beginPath();
-    bg.moveTo(-width / 2 + 4, -height / 2 + 4);
-    bg.lineTo(width / 2 - 4, -height / 2 + 4);
+    bg.moveTo(-width / 2 + 5, -height / 2 + 5);
+    bg.lineTo(width / 2 - 5, -height / 2 + 5);
+    bg.strokePath();
+    bg.beginPath();
+    bg.moveTo(-width / 2 + 5, -height / 2 + 5);
+    bg.lineTo(-width / 2 + 5, height / 2 - 5);
+    bg.strokePath();
+
+    // Shadow edge (bottom-right)
+    bg.lineStyle(2, 0x2a1a0a, alpha * 0.6);
+    bg.beginPath();
+    bg.moveTo(-width / 2 + 5, height / 2 - 5);
+    bg.lineTo(width / 2 - 5, height / 2 - 5);
+    bg.strokePath();
+    bg.beginPath();
+    bg.moveTo(width / 2 - 5, -height / 2 + 5);
+    bg.lineTo(width / 2 - 5, height / 2 - 5);
+    bg.strokePath();
+
+    // Corner rivets/screws
+    const cornerSize = 7;
+    const inset = 12;
+
+    const corners = [
+      [-width / 2 + inset, -height / 2 + inset],
+      [width / 2 - inset, -height / 2 + inset],
+      [-width / 2 + inset, height / 2 - inset],
+      [width / 2 - inset, height / 2 - inset],
+    ];
+
+    corners.forEach(([x, y]) => {
+      // Outer dark ring
+      bg.fillStyle(0x0a0a0a, 1);
+      bg.fillCircle(x, y, cornerSize);
+      // Inner metal ring
+      bg.fillStyle(0x3a3a3a, alpha);
+      bg.fillCircle(x, y, cornerSize - 1.5);
+      // Center (screw slot)
+      bg.lineStyle(1.5, 0x1a1a1a, 1);
+      bg.beginPath();
+      bg.moveTo(x - 3, y);
+      bg.lineTo(x + 3, y);
+      bg.strokePath();
+    });
+  }
+
+  darkenColor(color, amount) {
+    const r = (color >> 16) & 0xff;
+    const g = (color >> 8) & 0xff;
+    const b = color & 0xff;
+
+    const newR = Math.floor(r * (1 - amount));
+    const newG = Math.floor(g * (1 - amount));
+    const newB = Math.floor(b * (1 - amount));
+
+    return (newR << 16) | (newG << 8) | newB;
+  }
+
+  addWeathering(bg, width, height, alpha) {
+    const spots = [
+      { x: -width / 4, y: -height / 4, size: 8, color: 0x4a3820 },
+      { x: width / 3, y: height / 4, size: 6, color: 0x6b5020 },
+      { x: -width / 3, y: height / 3, size: 5, color: 0x5a4520 },
+      { x: width / 4, y: -height / 3, size: 7, color: 0x3a2810 },
+      { x: 0, y: height / 5, size: 4, color: 0x7a5520 },
+    ];
+
+    spots.forEach(spot => {
+      bg.fillStyle(spot.color, alpha * 0.4);
+      bg.fillCircle(spot.x, spot.y, spot.size);
+      bg.fillStyle(spot.color, alpha * 0.2);
+      bg.fillCircle(spot.x + 1, spot.y - 1, spot.size * 0.6);
+    });
+
+    // Scratches
+    bg.lineStyle(1, 0x2a2a2a, alpha * 0.3);
+    bg.beginPath();
+    bg.moveTo(-width / 3, -height / 4);
+    bg.lineTo(-width / 4, -height / 3.5);
+    bg.strokePath();
+
+    bg.beginPath();
+    bg.moveTo(width / 4, height / 3);
+    bg.lineTo(width / 3, height / 4);
     bg.strokePath();
   }
 

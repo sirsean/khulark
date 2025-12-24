@@ -108,7 +108,8 @@ export default class FeedingSystem {
 
     // Create loading text
     this.loadingText = this.scene.add.text(width / 2, height / 2, 'PROCESSING...', {
-      font: 'bold 32px monospace',
+      fontFamily: 'FringeV2',
+      fontSize: '32px',
       fill: '#d97706',
       stroke: '#000',
       strokeThickness: 3,
