@@ -99,9 +99,13 @@ export default class GameState {
 
   modifyStat(stat, amount) {
     if (this.state.khulark[stat] !== undefined) {
-      this.state.khulark[stat] = Math.max(0, Math.min(100, this.state.khulark[stat] + amount));
+      const oldValue = this.state.khulark[stat];
+      const newValue = Math.max(0, Math.min(100, oldValue + amount));
+      this.state.khulark[stat] = newValue;
       this.save();
+      return { oldValue, newValue };
     }
+    return null;
   }
 
   setBodyState(bodyState) {

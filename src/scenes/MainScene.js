@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import GameState from '../state/GameState.js';
 import MoodSystem from '../systems/MoodSystem.js';
+import ParticleManager from '../systems/ParticleManager.js';
+import AudioManager from '../systems/AudioManager.js';
 
 export default class MainScene extends Phaser.Scene {
   constructor() {
@@ -12,6 +14,11 @@ export default class MainScene extends Phaser.Scene {
     this.lastPetTime = 0;
     this.decayTimer = null;
     this.lastDecayTime = Date.now();
+    this.particleManager = null;
+    this.audioManager = null;
+    this.idleTimer = null;
+    this.buttons = {};
+    this.lastMoodCheck = Date.now();
   }
 
   create() {
@@ -22,8 +29,13 @@ export default class MainScene extends Phaser.Scene {
     this.gameState.load();
     const stats = this.gameState.getKhularkStats();
 
+    // Initialize managers
+    this.particleManager = new ParticleManager(this);
+    this.audioManager = new AudioManager(this, this.gameState);
+    this.audioManager.init();
+
     // Background color
-    this.cameras.main.setBackgroundColor('#e8dcc8');
+    this.cameras.main.setBackgroundColor('#F9F1EA');
 
     // Add title
     this.add.text(width / 2, 50, 'KHULARK', {
@@ -59,6 +71,9 @@ export default class MainScene extends Phaser.Scene {
 
     // Start passive decay timer (updates every 10 seconds)
     this.startPassiveDecay();
+
+    // Start idle animation system
+    this.startIdleAnimations();
   }
 
   startPassiveDecay() {
@@ -109,10 +124,17 @@ export default class MainScene extends Phaser.Scene {
   }
 
   destroy() {
-    // Clean up timer when scene is destroyed
+    // Clean up timers when scene is destroyed
     if (this.decayTimer) {
       this.decayTimer.remove();
       this.decayTimer = null;
+    }
+    if (this.idleTimer) {
+      this.idleTimer.remove();
+      this.idleTimer = null;
+    }
+    if (this.audioManager) {
+      this.audioManager.destroy();
     }
     super.destroy();
   }
@@ -124,8 +146,8 @@ export default class MainScene extends Phaser.Scene {
     const spacing = 40;
 
     const statConfig = [
-      { name: 'hunger', label: 'Hunger', color: 0xff6b6b, value: stats.hunger },
-      { name: 'affection', label: 'Affection', color: 0xff69b4, value: stats.affection },
+      { name: 'hunger', label: 'Hunger', color: 0xff6b6b, value: stats.hunger, buttonColor: 0x8b4513 },
+      { name: 'affection', label: 'Affection', color: 0xff69b4, value: stats.affection, buttonColor: 0x6b4423 },
       { name: 'sanity', label: 'Sanity', color: 0x69b4ff, value: stats.sanity }
     ];
 
@@ -156,7 +178,17 @@ export default class MainScene extends Phaser.Scene {
         fill: '#000000'
       }).setOrigin(0, 0.5);
 
-      this.statBars[stat.name] = { barFill, valueText, barWidth, x: width / 2 - barWidth / 2, y, color: stat.color };
+      this.statBars[stat.name] = { 
+        barFill, 
+        valueText, 
+        barWidth, 
+        x: width / 2 - barWidth / 2, 
+        y, 
+        color: stat.color,
+        baseColor: stat.color,
+        currentWidth: fillWidth,
+        isPulsing: false
+      };
     });
   }
 
@@ -165,53 +197,191 @@ export default class MainScene extends Phaser.Scene {
     const buttonWidth = 200;
     const buttonHeight = 60;
 
-    // Feed button
-    const feedBtn = this.createButton(width / 2 - 110, buttonY, buttonWidth, buttonHeight, 'FEED', 0xff6b6b);
-    feedBtn.on('pointerdown', () => this.handleFeed());
+    // Feed button - weathered rust/copper color
+    const feedBtn = this.createButton(width / 2 - 110, buttonY, buttonWidth, buttonHeight, 'FEED', 0x8b4513);
+    feedBtn.on('pointerdown', () => {
+      this.audioManager.playClick();
+      this.handleFeed();
+    });
+    this.buttons.feed = feedBtn;
 
-    // Pet button
-    const petBtn = this.createButton(width / 2 + 110, buttonY, buttonWidth, buttonHeight, 'PET', 0xff69b4);
-    petBtn.on('pointerdown', () => this.handlePet());
+    // Pet button - weathered bronze/brass color
+    const petBtn = this.createButton(width / 2 + 110, buttonY, buttonWidth, buttonHeight, 'PET', 0x6b4423);
+    petBtn.on('pointerdown', () => {
+      this.audioManager.playClick();
+      this.handlePet();
+    });
+    this.buttons.pet = petBtn;
   }
 
   createButton(x, y, width, height, text, color) {
     const button = this.add.container(x, y);
 
-    // Button background
+    // Button background - use weathered metal style
     const bg = this.add.graphics();
-    bg.fillStyle(color, 1);
-    bg.fillRoundedRect(-width / 2, -height / 2, width, height, 10);
-    bg.lineStyle(3, 0xffffff, 1);
-    bg.strokeRoundedRect(-width / 2, -height / 2, width, height, 10);
+    this.redrawButton(bg, width, height, color, 1.0);
 
-    // Button text
+    // Cooldown overlay (initially hidden)
+    const cooldownOverlay = this.add.graphics();
+    cooldownOverlay.setVisible(false);
+
+    // Cooldown text
+    const cooldownText = this.add.text(0, 20, '', {
+      font: '12px monospace',
+      fill: '#ffffff'
+    }).setOrigin(0.5).setVisible(false);
+
+    // Button text with retro styling
     const buttonText = this.add.text(0, 0, text, {
       font: 'bold 24px monospace',
-      fill: '#ffffff'
+      fill: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 3
     }).setOrigin(0.5);
 
-    button.add([bg, buttonText]);
+    button.add([bg, cooldownOverlay, buttonText, cooldownText]);
     button.setSize(width, height);
     button.setInteractive({ cursor: 'pointer' });
 
+    // Store references for cooldown
+    button.setData('bg', bg);
+    button.setData('cooldownOverlay', cooldownOverlay);
+    button.setData('cooldownText', cooldownText);
+    button.setData('buttonText', buttonText);
+    button.setData('baseColor', color);
+    button.setData('width', width);
+    button.setData('height', height);
+
     // Hover effect
     button.on('pointerover', () => {
-      bg.clear();
-      bg.fillStyle(color, 0.8);
-      bg.fillRoundedRect(-width / 2, -height / 2, width, height, 10);
-      bg.lineStyle(3, 0xffffff, 1);
-      bg.strokeRoundedRect(-width / 2, -height / 2, width, height, 10);
+      if (!button.getData('onCooldown')) {
+        this.redrawButton(bg, width, height, color, 0.85);
+      }
     });
 
     button.on('pointerout', () => {
-      bg.clear();
-      bg.fillStyle(color, 1);
-      bg.fillRoundedRect(-width / 2, -height / 2, width, height, 10);
-      bg.lineStyle(3, 0xffffff, 1);
-      bg.strokeRoundedRect(-width / 2, -height / 2, width, height, 10);
+      if (!button.getData('onCooldown')) {
+        this.redrawButton(bg, width, height, color, 1.0);
+      }
     });
 
     return button;
+  }
+
+  redrawButton(bg, width, height, color, alpha = 1.0) {
+    bg.clear();
+    
+    // Base metal color (darker)
+    const baseColor = this.darkenColor(color, 0.3);
+    bg.fillStyle(baseColor, alpha);
+    bg.fillRect(-width / 2, -height / 2, width, height);
+    
+    // Main button body with slight gradient effect (lighter center)
+    bg.fillStyle(color, alpha);
+    bg.fillRect(-width / 2 + 4, -height / 2 + 4, width - 8, height - 8);
+    
+    // Add weathering/patina spots
+    this.addWeathering(bg, width, height, alpha);
+    
+    // Chunky outer border (dark metal edge)
+    bg.lineStyle(5, 0x1a1a1a, 1);
+    bg.strokeRect(-width / 2, -height / 2, width, height);
+    
+    // Inner worn edge (lighter, showing wear)
+    bg.lineStyle(1, 0x4a3820, alpha * 0.8);
+    bg.strokeRect(-width / 2 + 3, -height / 2 + 3, width - 6, height - 6);
+    
+    // Highlight edge (top-left, simulating light)
+    bg.lineStyle(2, 0xd4a574, alpha * 0.5);
+    bg.beginPath();
+    bg.moveTo(-width / 2 + 5, -height / 2 + 5);
+    bg.lineTo(width / 2 - 5, -height / 2 + 5);
+    bg.strokePath();
+    bg.beginPath();
+    bg.moveTo(-width / 2 + 5, -height / 2 + 5);
+    bg.lineTo(-width / 2 + 5, height / 2 - 5);
+    bg.strokePath();
+    
+    // Shadow edge (bottom-right)
+    bg.lineStyle(2, 0x2a1a0a, alpha * 0.6);
+    bg.beginPath();
+    bg.moveTo(-width / 2 + 5, height / 2 - 5);
+    bg.lineTo(width / 2 - 5, height / 2 - 5);
+    bg.strokePath();
+    bg.beginPath();
+    bg.moveTo(width / 2 - 5, -height / 2 + 5);
+    bg.lineTo(width / 2 - 5, height / 2 - 5);
+    bg.strokePath();
+    
+    // Corner rivets/screws (darker, more industrial)
+    const cornerSize = 7;
+    const inset = 12;
+    
+    // Draw all 4 corner rivets
+    const corners = [
+      [-width / 2 + inset, -height / 2 + inset],
+      [width / 2 - inset, -height / 2 + inset],
+      [-width / 2 + inset, height / 2 - inset],
+      [width / 2 - inset, height / 2 - inset]
+    ];
+    
+    corners.forEach(([x, y]) => {
+      // Outer dark ring
+      bg.fillStyle(0x0a0a0a, 1);
+      bg.fillCircle(x, y, cornerSize);
+      // Inner metal ring
+      bg.fillStyle(0x3a3a3a, alpha);
+      bg.fillCircle(x, y, cornerSize - 1.5);
+      // Center (screw slot)
+      bg.lineStyle(1.5, 0x1a1a1a, 1);
+      bg.beginPath();
+      bg.moveTo(x - 3, y);
+      bg.lineTo(x + 3, y);
+      bg.strokePath();
+    });
+  }
+  
+  darkenColor(color, amount) {
+    const r = (color >> 16) & 0xff;
+    const g = (color >> 8) & 0xff;
+    const b = color & 0xff;
+    
+    const newR = Math.floor(r * (1 - amount));
+    const newG = Math.floor(g * (1 - amount));
+    const newB = Math.floor(b * (1 - amount));
+    
+    return (newR << 16) | (newG << 8) | newB;
+  }
+  
+  addWeathering(bg, width, height, alpha) {
+    // Add random patina/wear spots
+    const spots = [
+      { x: -width / 4, y: -height / 4, size: 8, color: 0x4a3820 },
+      { x: width / 3, y: height / 4, size: 6, color: 0x6b5020 },
+      { x: -width / 3, y: height / 3, size: 5, color: 0x5a4520 },
+      { x: width / 4, y: -height / 3, size: 7, color: 0x3a2810 },
+      { x: 0, y: height / 5, size: 4, color: 0x7a5520 }
+    ];
+    
+    spots.forEach(spot => {
+      bg.fillStyle(spot.color, alpha * 0.4);
+      bg.fillCircle(spot.x, spot.y, spot.size);
+      // Add smaller highlight within spot for depth
+      bg.fillStyle(spot.color, alpha * 0.2);
+      bg.fillCircle(spot.x + 1, spot.y - 1, spot.size * 0.6);
+    });
+    
+    // Add some scratches
+    bg.lineStyle(1, 0x2a2a2a, alpha * 0.3);
+    bg.beginPath();
+    bg.moveTo(-width / 3, -height / 4);
+    bg.lineTo(-width / 4, -height / 3.5);
+    bg.strokePath();
+    
+    bg.beginPath();
+    bg.moveTo(width / 4, height / 3);
+    bg.lineTo(width / 3, height / 4);
+    bg.strokePath();
   }
 
   handleFeed() {
@@ -220,18 +390,31 @@ export default class MainScene extends Phaser.Scene {
 
     if (now - this.lastFeedTime < cooldown) {
       this.showFeedback('Too soon! Wait a bit...', 0xff6b6b);
+      this.audioManager.playWarning();
       return;
     }
 
     this.lastFeedTime = now;
-    this.gameState.modifyStat('hunger', 20);
+    const result = this.gameState.modifyStat('hunger', 20);
+    
+    if (result) {
+      this.tweenStat('hunger', result.oldValue, result.newValue);
+    }
     
     const stats = this.gameState.getKhularkStats();
-    this.updateStatBars(stats);
     this.updateKhularkSprite(stats.hunger);
     
-    this.showFeedback('+20 Hunger!', 0x00ff00);
+    // Particles and audio
+    const spriteX = this.khularkSprite.x;
+    const spriteY = this.khularkSprite.y;
+    this.particleManager.emitSparkles(spriteX, spriteY, 0xffa500);
+    this.particleManager.emitStatChange(spriteX, spriteY - 80, '+20', '#00ff00');
+    this.audioManager.playFeed();
+    
     this.animateKhulark('feed');
+    
+    // Show cooldown
+    this.showButtonCooldown(this.buttons.feed, cooldown);
   }
 
   handlePet() {
@@ -240,17 +423,29 @@ export default class MainScene extends Phaser.Scene {
 
     if (now - this.lastPetTime < cooldown) {
       this.showFeedback('Give them space...', 0xff69b4);
+      this.audioManager.playWarning();
       return;
     }
 
     this.lastPetTime = now;
-    this.gameState.modifyStat('affection', 10);
+    const result = this.gameState.modifyStat('affection', 10);
     
-    const stats = this.gameState.getKhularkStats();
-    this.updateStatBars(stats);
+    if (result) {
+      this.tweenStat('affection', result.oldValue, result.newValue);
+    }
     
-    this.showFeedback('+10 Affection!', 0x00ff00);
+    // Particles and audio
+    const spriteX = this.khularkSprite.x;
+    const spriteY = this.khularkSprite.y;
+    this.particleManager.emitHearts(spriteX, spriteY - 50);
+    this.particleManager.emitStatChange(spriteX, spriteY - 80, '+10', '#ff69b4');
+    this.particleManager.emitRipple(spriteX, spriteY);
+    this.audioManager.playPet();
+    
     this.animateKhulark('pet');
+    
+    // Show cooldown
+    this.showButtonCooldown(this.buttons.pet, cooldown);
   }
 
   updateStatBars(stats) {
@@ -260,11 +455,45 @@ export default class MainScene extends Phaser.Scene {
         const value = stats[statName];
         const fillWidth = (value / 100) * bar.barWidth;
         
-        bar.barFill.clear();
-        bar.barFill.fillStyle(bar.color, 1);
-        bar.barFill.fillRect(bar.x, bar.y, fillWidth, 20);
+        // Get color based on stat level
+        const color = this.getStatColor(value, bar.baseColor);
+        
+        // Animate to new width if it has a currentWidth property
+        if (bar.currentWidth === undefined) {
+          bar.currentWidth = fillWidth;
+        }
+        
+        // Tween the bar width
+        this.tweens.add({
+          targets: bar,
+          currentWidth: fillWidth,
+          duration: 300,
+          ease: 'Cubic.easeOut',
+          onUpdate: () => {
+            bar.barFill.clear();
+            bar.barFill.fillStyle(color, 1);
+            bar.barFill.fillRect(bar.x, bar.y, bar.currentWidth, 20);
+          }
+        });
         
         bar.valueText.setText(Math.round(value) + '%');
+        
+        // Pulse effect if stat is critical
+        if (value < 20 && !bar.isPulsing) {
+          bar.isPulsing = true;
+          this.tweens.add({
+            targets: bar.valueText,
+            scale: 1.2,
+            duration: 500,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+          });
+        } else if (value >= 20 && bar.isPulsing) {
+          bar.isPulsing = false;
+          this.tweens.killTweensOf(bar.valueText);
+          bar.valueText.setScale(1);
+        }
       }
     });
   }
@@ -280,15 +509,51 @@ export default class MainScene extends Phaser.Scene {
   }
 
   animateKhulark(type) {
-    // Simple bounce animation
-    this.tweens.add({
-      targets: this.khularkSprite,
-      scaleX: 0.55,
-      scaleY: 0.55,
-      duration: 100,
-      yoyo: true,
-      ease: 'Sine.easeInOut'
-    });
+    if (type === 'feed') {
+      // Squash and stretch for eating
+      this.tweens.add({
+        targets: this.khularkSprite,
+        scaleX: 0.45,
+        scaleY: 0.55,
+        duration: 80,
+        yoyo: true,
+        ease: 'Back.easeOut',
+        onComplete: () => {
+          this.tweens.add({
+            targets: this.khularkSprite,
+            scaleX: 0.52,
+            scaleY: 0.48,
+            duration: 120,
+            yoyo: true,
+            ease: 'Sine.easeInOut'
+          });
+        }
+      });
+    } else if (type === 'pet') {
+      // Gentle sway for petting
+      this.tweens.add({
+        targets: this.khularkSprite,
+        angle: -5,
+        scaleX: 0.52,
+        scaleY: 0.52,
+        duration: 200,
+        yoyo: true,
+        ease: 'Sine.easeInOut',
+        onComplete: () => {
+          this.khularkSprite.angle = 0;
+        }
+      });
+    } else {
+      // Default bounce
+      this.tweens.add({
+        targets: this.khularkSprite,
+        scaleX: 0.55,
+        scaleY: 0.55,
+        duration: 100,
+        yoyo: true,
+        ease: 'Sine.easeInOut'
+      });
+    }
   }
 
   showFeedback(text, color) {
@@ -308,5 +573,217 @@ export default class MainScene extends Phaser.Scene {
       ease: 'Power2',
       onComplete: () => feedbackText.destroy()
     });
+  }
+
+  startIdleAnimations() {
+    // Start idle animation loop
+    this.idleTimer = this.time.addEvent({
+      delay: 3000 + Math.random() * 4000, // 3-7 seconds
+      callback: this.playIdleAnimation,
+      callbackScope: this,
+      loop: true
+    });
+  }
+
+  playIdleAnimation() {
+    if (!this.khularkSprite) return;
+
+    const stats = this.gameState.getKhularkStats();
+    const mood = MoodSystem.getMoodDescription(stats.hunger, stats.affection, stats.sanity);
+
+    // Different idle behaviors based on mood
+    if (mood === 'critical' || mood === 'distressed') {
+      // Sad/distressed idle - slow breathing, occasional droop
+      this.tweens.add({
+        targets: this.khularkSprite,
+        scaleY: 0.48,
+        y: this.khularkSprite.y + 5,
+        duration: 1500,
+        yoyo: true,
+        ease: 'Sine.easeInOut'
+      });
+    } else if (mood === 'content') {
+      // Happy idle - bounce or wiggle
+      const random = Math.random();
+      if (random < 0.5) {
+        // Little bounce
+        this.tweens.add({
+          targets: this.khularkSprite,
+          y: this.khularkSprite.y - 20,
+          duration: 300,
+          yoyo: true,
+          ease: 'Quad.easeOut'
+        });
+      } else {
+        // Wiggle
+        this.tweens.add({
+          targets: this.khularkSprite,
+          angle: 5,
+          duration: 200,
+          yoyo: true,
+          repeat: 1,
+          ease: 'Sine.easeInOut',
+          onComplete: () => {
+            this.khularkSprite.angle = 0;
+          }
+        });
+      }
+    } else {
+      // Neutral idle - gentle breathing
+      this.tweens.add({
+        targets: this.khularkSprite,
+        scaleY: 0.51,
+        duration: 2000,
+        yoyo: true,
+        ease: 'Sine.easeInOut'
+      });
+    }
+
+    // Check for critical stats and show warnings
+    this.checkCriticalStats(stats);
+  }
+
+  checkCriticalStats(stats) {
+    const now = Date.now();
+    if (now - this.lastMoodCheck < 30000) return; // Check every 30 seconds
+
+    if (stats.hunger < 20 || stats.affection < 20 || stats.sanity < 20) {
+      this.lastMoodCheck = now;
+      this.particleManager.emitWarningPulse(
+        this.khularkSprite.x,
+        this.khularkSprite.y
+      );
+      this.screenShake();
+      
+      // Add tint to sprite
+      this.tweens.add({
+        targets: this.khularkSprite,
+        tint: 0xff6666,
+        duration: 200,
+        yoyo: true,
+        repeat: 1,
+        onComplete: () => {
+          this.khularkSprite.clearTint();
+        }
+      });
+    }
+  }
+
+  getStatColor(value, baseColor) {
+    // Return color based on stat value
+    if (value >= 70) {
+      return 0x00ff00; // Green
+    } else if (value >= 40) {
+      return baseColor; // Original color
+    } else if (value >= 20) {
+      return 0xffa500; // Orange
+    } else {
+      return 0xff0000; // Red
+    }
+  }
+
+  screenShake() {
+    // Shake the camera
+    this.cameras.main.shake(200, 0.005);
+  }
+
+  flashScreen(color = 0xffffff, duration = 100) {
+    const flash = this.add.graphics();
+    flash.fillStyle(color, 0.3);
+    flash.fillRect(0, 0, this.cameras.main.width, this.cameras.main.height);
+    flash.setDepth(1000);
+
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: duration,
+      onComplete: () => flash.destroy()
+    });
+  }
+
+  tweenStat(statName, fromValue, toValue) {
+    const bar = this.statBars[statName];
+    if (!bar) return;
+
+    // Create a temp object to tween
+    const tempStat = { value: fromValue };
+
+    this.tweens.add({
+      targets: tempStat,
+      value: toValue,
+      duration: 800,
+      ease: 'Cubic.easeOut',
+      onUpdate: () => {
+        const fillWidth = (tempStat.value / 100) * bar.barWidth;
+        const color = this.getStatColor(tempStat.value, bar.baseColor);
+        
+        bar.barFill.clear();
+        bar.barFill.fillStyle(color, 1);
+        bar.barFill.fillRect(bar.x, bar.y, fillWidth, 20);
+        
+        bar.valueText.setText(Math.round(tempStat.value) + '%');
+        
+        // Update currentWidth for consistency
+        bar.currentWidth = fillWidth;
+      }
+    });
+  }
+
+  showButtonCooldown(button, cooldownMs) {
+    if (!button) return;
+
+    const bg = button.getData('bg');
+    const overlay = button.getData('cooldownOverlay');
+    const cooldownText = button.getData('cooldownText');
+    const width = button.getData('width');
+    const height = button.getData('height');
+    const baseColor = button.getData('baseColor');
+
+    // Mark button as on cooldown
+    button.setData('onCooldown', true);
+    button.disableInteractive();
+
+    // Gray out button with retro style
+    this.redrawButton(bg, width, height, 0x555555, 0.8);
+
+    // Show cooldown overlay
+    overlay.setVisible(true);
+    cooldownText.setVisible(true);
+
+    const startTime = Date.now();
+    const updateInterval = 100;
+
+    const updateCooldown = () => {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, cooldownMs - elapsed);
+      const progress = 1 - (remaining / cooldownMs);
+
+      if (remaining <= 0) {
+        // Cooldown complete
+        button.setData('onCooldown', false);
+        button.setInteractive();
+        overlay.setVisible(false);
+        cooldownText.setVisible(false);
+        
+        // Restore button appearance
+        this.redrawButton(bg, width, height, baseColor, 1.0);
+        return;
+      }
+
+      // Update cooldown display
+      const seconds = Math.ceil(remaining / 1000);
+      cooldownText.setText(seconds + 's');
+
+      // Draw progress overlay (fills from top down)
+      overlay.clear();
+      overlay.fillStyle(0x000000, 0.5);
+      const fillHeight = height * (1 - progress);
+      overlay.fillRect(-width / 2, -height / 2, width, fillHeight);
+
+      // Schedule next update
+      this.time.delayedCall(updateInterval, updateCooldown);
+    };
+
+    updateCooldown();
   }
 }
