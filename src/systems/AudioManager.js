@@ -97,7 +97,7 @@ export default class AudioManager {
   }
 
   /**
-   * Play pet success sound
+   * Play pet success sound (low, pulsing "purr")
    */
   playPet() {
     if (!this.isEnabled) return;
@@ -112,15 +112,27 @@ export default class AudioManager {
       oscillator.connect(gainNode);
       gainNode.connect(context.destination);
       
-      // Gentle tone for petting
-      oscillator.frequency.value = 600;
-      oscillator.type = 'sine';
+      // Low, soft rumble for purring
+      oscillator.frequency.value = 70;
+      oscillator.type = 'triangle';
       
-      gainNode.gain.setValueAtTime(0.12, context.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.2);
-      
-      oscillator.start(context.currentTime);
-      oscillator.stop(context.currentTime + 0.2);
+      const now = context.currentTime;
+      const duration = 0.8;
+      const baseGain = 0.14;
+
+      // Start from silence and ramp into a few soft pulses
+      gainNode.gain.setValueAtTime(0.0, now);
+      const pulses = 5;
+      for (let i = 0; i < pulses; i++) {
+        const tStart = now + (i * duration) / pulses;
+        const tPeak = tStart + 0.05;
+        const tEnd = tStart + 0.12;
+        gainNode.gain.linearRampToValueAtTime(baseGain, tPeak);
+        gainNode.gain.linearRampToValueAtTime(0.02, tEnd);
+      }
+
+      oscillator.start(now);
+      oscillator.stop(now + duration);
     } catch (error) {
       console.warn('Failed to play pet sound', error);
     }

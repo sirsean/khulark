@@ -23,6 +23,12 @@ export default class MainScene extends Phaser.Scene {
     this.currentBackgroundColor = null;
     this.feedingSystem = null;
     this.speechBubble = null;
+
+    // Petting gesture state
+    this.isPetting = false;
+    this.petGesture = null;
+    this.lastPurrSoundTime = 0;
+    this.lastPurrVibrationTime = 0;
   }
 
   create() {
@@ -62,8 +68,12 @@ export default class MainScene extends Phaser.Scene {
     this.khularkSprite.setScale(0.5); // Adjust scale as needed
     this.khularkSprite.setInteractive({ cursor: 'pointer' });
 
-    // Pet interaction on sprite click
-    this.khularkSprite.on('pointerdown', () => this.handlePet());
+    // Pet interaction by rubbing back and forth on the khulark
+    this.khularkSprite.on('pointerdown', (pointer) => this.startPetGesture(pointer));
+    this.khularkSprite.on('pointermove', (pointer) => this.updatePetGesture(pointer));
+    this.khularkSprite.on('pointerup', () => this.endPetGesture());
+    this.khularkSprite.on('pointerupoutside', () => this.endPetGesture());
+    this.khularkSprite.on('pointerout', () => this.endPetGesture());
 
     // Create interaction buttons
     this.createButtons(width, height);
@@ -205,20 +215,14 @@ export default class MainScene extends Phaser.Scene {
     const buttonHeight = 60;
 
     // Feed button - weathered rust/copper color
-    const feedBtn = this.createButton(width / 2 - 110, buttonY, buttonWidth, buttonHeight, 'FEED', 0x8b4513);
+    const feedBtn = this.createButton(width / 2, buttonY, buttonWidth, buttonHeight, 'FEED', 0x8b4513);
     feedBtn.on('pointerdown', () => {
       this.audioManager.playClick();
       this.handleFeed();
     });
     this.buttons.feed = feedBtn;
 
-    // Pet button - weathered bronze/brass color
-    const petBtn = this.createButton(width / 2 + 110, buttonY, buttonWidth, buttonHeight, 'PET', 0x6b4423);
-    petBtn.on('pointerdown', () => {
-      this.audioManager.playClick();
-      this.handlePet();
-    });
-    this.buttons.pet = petBtn;
+    // No dedicated PET button anymore; petting is done directly on the khulark sprite.
   }
 
   createButton(x, y, width, height, text, color) {
@@ -459,6 +463,7 @@ export default class MainScene extends Phaser.Scene {
     if (now - this.lastPetTime < cooldown) {
       this.showFeedback('Give them space...', 0xff69b4);
       this.audioManager.playWarning();
+      this.animatePetCooldownWiggle();
       return;
     }
 
@@ -478,9 +483,101 @@ export default class MainScene extends Phaser.Scene {
     this.audioManager.playPet();
     
     this.animateKhulark('pet');
+    this.triggerHapticFeedback();
     
-    // Show cooldown
-    this.showButtonCooldown(this.buttons.pet, cooldown);
+    // If we ever reintroduce a PET button, keep cooldown visuals guarded
+    if (this.buttons.pet) {
+      this.showButtonCooldown(this.buttons.pet, cooldown);
+    }
+  }
+
+  startPetGesture(pointer) {
+    this.isPetting = true;
+
+    const x = pointer.worldX ?? pointer.x;
+    const y = pointer.worldY ?? pointer.y;
+
+    this.petGesture = {
+      lastX: x,
+      lastY: y,
+      lastDirection: 0,
+      directionChanges: 0,
+      totalDistance: 0,
+      triggered: false,
+      startedAt: Date.now(),
+    };
+  }
+
+  updatePetGesture(pointer) {
+    if (!this.isPetting || !this.petGesture) return;
+
+    const x = pointer.worldX ?? pointer.x;
+    const y = pointer.worldY ?? pointer.y;
+
+    const dx = x - this.petGesture.lastX;
+    const dy = y - this.petGesture.lastY;
+
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance < 3) {
+      // Ignore tiny jitter
+      return;
+    }
+
+    // Continuous purr feedback while rubbing (independent of affection cooldown)
+    const now = Date.now();
+    const SOUND_INTERVAL = 200; // ms between purr sound bursts
+    const VIBE_INTERVAL = 150;  // ms between vibration pulses
+
+    if (now - this.lastPurrSoundTime > SOUND_INTERVAL) {
+      this.lastPurrSoundTime = now;
+      this.audioManager.playPet();
+    }
+
+    if (now - this.lastPurrVibrationTime > VIBE_INTERVAL) {
+      this.lastPurrVibrationTime = now;
+      this.triggerHapticFeedback();
+    }
+
+    this.petGesture.totalDistance += distance;
+
+    const absDx = Math.abs(dx);
+    if (absDx > 5) {
+      const dir = dx > 0 ? 1 : -1;
+      if (this.petGesture.lastDirection !== 0 && dir !== this.petGesture.lastDirection) {
+        this.petGesture.directionChanges += 1;
+      }
+      this.petGesture.lastDirection = dir;
+    }
+
+    this.petGesture.lastX = x;
+    this.petGesture.lastY = y;
+
+    const MIN_DISTANCE = 40; // total pixels moved
+    const MIN_DIRECTION_CHANGES = 2; // back-and-forth
+
+    if (!this.petGesture.triggered &&
+        this.petGesture.totalDistance > MIN_DISTANCE &&
+        this.petGesture.directionChanges >= MIN_DIRECTION_CHANGES) {
+      this.petGesture.triggered = true;
+      this.handlePet();
+    }
+  }
+
+  endPetGesture() {
+    this.isPetting = false;
+    this.petGesture = null;
+  }
+
+  triggerHapticFeedback() {
+    // Try to vibrate the device on supported browsers (e.g. mobile)
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        // Short purr-like vibration pattern
+        navigator.vibrate([20, 40, 20]);
+      }
+    } catch (e) {
+      // Ignore vibration errors/failures
+    }
   }
 
   updateStatBars(stats) {
@@ -592,6 +689,22 @@ export default class MainScene extends Phaser.Scene {
         ease: 'Sine.easeInOut'
       });
     }
+  }
+
+  animatePetCooldownWiggle() {
+    if (!this.khularkSprite) return;
+
+    this.tweens.add({
+      targets: this.khularkSprite,
+      angle: { from: -7, to: 7 },
+      duration: 100,
+      yoyo: true,
+      repeat: 3,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        this.khularkSprite.angle = 0;
+      }
+    });
   }
 
   showFeedback(text, color) {
