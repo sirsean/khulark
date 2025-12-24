@@ -166,7 +166,7 @@ export default class MainScene extends Phaser.Scene {
     const statConfig = [
       { name: 'hunger', label: 'Hunger', color: 0xff6b6b, value: stats.hunger, buttonColor: 0x8b4513 },
       { name: 'affection', label: 'Affection', color: 0xff69b4, value: stats.affection, buttonColor: 0x6b4423 },
-      { name: 'sanity', label: 'Sanity', color: 0x69b4ff, value: stats.sanity }
+      { name: 'sanity', label: 'Sanity', color: 0xa3e635, value: stats.sanity }
     ];
 
     statConfig.forEach((stat, index) => {
@@ -451,7 +451,7 @@ export default class MainScene extends Phaser.Scene {
     if (response.sanity) {
       this.particleManager.emitStatChange(spriteX + 30, spriteY - 80,
         (response.sanity > 0 ? '+' : '') + response.sanity,
-        response.sanity > 0 ? '#69b4ff' : '#ff6b6b');
+        response.sanity > 0 ? '#a3e635' : '#ff6b6b');
     }
 
     // Show cooldown
