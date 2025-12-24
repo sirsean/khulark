@@ -127,13 +127,18 @@ You depend on them for food, affection, and emotional comfort. You have three st
 
 Your companion has just shown you a photo containing these objects: ${detectedObjects.join(', ')}
 
-Decide what you would eat from this photo and how it affects your stats. Consider:
-- Real food increases hunger significantly
-- Comfort items (blankets, toys, books) might increase affection/sanity but not hunger
-- Dangerous/inedible things might decrease stats
-- You can be playful and humorous (e.g., "happily munching on a wrench")
-- Empty photos or no food = confusion, small negative effects
-- Your companion's effort to feed you always means something
+IMPORTANT: You MUST choose something from the photo to eat. You are an alien, so your diet is different from humans:
+- You can eat furniture, electronics, household objects - anything!
+- Different items affect your stats differently
+- Tasty/interesting items: positive hunger, positive affection
+- Boring/unpleasant items: small hunger gain, neutral or negative other stats
+- Dangerous items (sharp, toxic): negative stats, but you still try them
+- The gesture of feeding always matters: never zero affection from the attempt
+
+Be creative and playful! Examples:
+- "I nibble the corner of the chair - woody and familiar" (+8 hunger, +5 affection)
+- "I cautiously lick the keyboard... ugh, tastes like work" (+3 hunger, -2 sanity)
+- "Ooh, a person! I'll just gnaw their shoelaces a bit" (+5 hunger, +10 affection, +3 sanity)
 
 Respond ONLY with valid JSON in this exact format (no markdown, no extra text):
 {
@@ -145,42 +150,62 @@ Respond ONLY with valid JSON in this exact format (no markdown, no extra text):
 }`;
 
   try {
-    console.log('[decideWhatToEat] Calling LLM with model: @cf/openai/gpt-oss-20b');
-    const response = await aiClient.run('@cf/openai/gpt-oss-20b', {
+    console.log('[decideWhatToEat] Calling LLM with model: @cf/meta/llama-4-scout-17b-16e-instruct');
+    const response = await aiClient.run('@cf/meta/llama-4-scout-17b-16e-instruct', {
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: 'What do you eat from this photo?' },
       ],
-      temperature: 0.8,
-      max_tokens: 200,
     });
 
     // Parse LLM response
     console.log('[decideWhatToEat] Raw LLM response type:', typeof response);
     console.log('[decideWhatToEat] Raw LLM response:', JSON.stringify(response).substring(0, 300));
     
-    const parsed = typeof response === 'object' && response !== null && 'response' in response
-      ? (response as { response: string }).response
-      : JSON.stringify(response);
+    // Check if response is already parsed (llama-4 format)
+    if (typeof response === 'object' && response !== null && 'response' in response) {
+      const innerResponse = (response as { response: unknown }).response;
+      
+      // If the inner response is already an object with our fields, use it directly
+      if (typeof innerResponse === 'object' && innerResponse !== null && 'hunger' in innerResponse) {
+        console.log('[decideWhatToEat] Found direct JSON response from llama-4');
+        const jsonResponse = innerResponse as FeedResponse;
+        
+        // Validate and clamp values
+        jsonResponse.hunger = Math.max(-30, Math.min(30, jsonResponse.hunger || 0));
+        jsonResponse.affection = Math.max(-20, Math.min(20, jsonResponse.affection || 0));
+        jsonResponse.sanity = Math.max(-20, Math.min(20, jsonResponse.sanity || 0));
+        jsonResponse.speech = (jsonResponse.speech || '').substring(0, 100);
+        jsonResponse.alertText = (jsonResponse.alertText || '').substring(0, 80);
 
-    console.log('[decideWhatToEat] Parsed response:', parsed.substring(0, 300));
+        console.log('[decideWhatToEat] Success! Returning:', JSON.stringify(jsonResponse));
+        return jsonResponse;
+      }
+      
+      // Otherwise treat it as a string to parse
+      const parsed = typeof innerResponse === 'string' 
+        ? innerResponse 
+        : JSON.stringify(innerResponse);
+      
+      console.log('[decideWhatToEat] Parsed response:', parsed.substring(0, 300));
 
-    // Try to extract JSON from response
-    const jsonMatch = parsed.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      console.log('[decideWhatToEat] Found JSON match');
-      const jsonResponse = JSON.parse(jsonMatch[0]) as FeedResponse;
+      // Try to extract JSON from response
+      const jsonMatch = parsed.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        console.log('[decideWhatToEat] Found JSON match in string');
+        const jsonResponse = JSON.parse(jsonMatch[0]) as FeedResponse;
       const feedResponse = JSON.parse(jsonMatch[0]) as FeedResponse;
       
-      // Validate and clamp values
-      jsonResponse.hunger = Math.max(-30, Math.min(30, jsonResponse.hunger || 0));
-      jsonResponse.affection = Math.max(-20, Math.min(20, jsonResponse.affection || 0));
-      jsonResponse.sanity = Math.max(-20, Math.min(20, jsonResponse.sanity || 0));
-      jsonResponse.speech = (jsonResponse.speech || '').substring(0, 100);
-      jsonResponse.alertText = (jsonResponse.alertText || '').substring(0, 80);
+        // Validate and clamp values
+        jsonResponse.hunger = Math.max(-30, Math.min(30, jsonResponse.hunger || 0));
+        jsonResponse.affection = Math.max(-20, Math.min(20, jsonResponse.affection || 0));
+        jsonResponse.sanity = Math.max(-20, Math.min(20, jsonResponse.sanity || 0));
+        jsonResponse.speech = (jsonResponse.speech || '').substring(0, 100);
+        jsonResponse.alertText = (jsonResponse.alertText || '').substring(0, 80);
 
-      console.log('[decideWhatToEat] Success! Returning:', JSON.stringify(jsonResponse));
-      return jsonResponse;
+        console.log('[decideWhatToEat] Success! Returning:', JSON.stringify(jsonResponse));
+        return jsonResponse;
+      }
     }
 
     console.error('[decideWhatToEat] No valid JSON found in LLM response');

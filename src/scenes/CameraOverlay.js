@@ -196,83 +196,15 @@ export default class CameraOverlay extends Phaser.Scene {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(this.videoElement, 0, 0);
 
-    // Convert to blob
+    // Convert to blob and send immediately
     canvas.toBlob((blob) => {
-      if (blob) {
-        this.capturedImage = blob;
-        this.showPreview(canvas);
+      if (blob && this.onPhotoCallback) {
+        this.onPhotoCallback(blob);
+        this.closeCamera();
       }
     }, 'image/jpeg', 0.9);
   }
 
-  showPreview(canvas) {
-    // Hide video and show preview
-    if (this.videoElement) {
-      this.videoElement.style.display = 'none';
-    }
-
-    // Create image from canvas
-    const width = this.cameras.main.width;
-    const frameWidth = width - 80;
-    const frameHeight = (frameWidth * 4) / 3;
-    const frameX = 40;
-    const frameY = 100;
-
-    // Convert canvas to data URL and create Phaser texture
-    const dataUrl = canvas.toDataURL('image/jpeg');
-    this.textures.once('addtexture', () => {
-      const preview = this.add.image(frameX + frameWidth / 2, frameY + frameHeight / 2, 'captured-photo');
-      preview.setDisplaySize(frameWidth, frameHeight);
-      this.previewImage = preview;
-    });
-    this.textures.addBase64('captured-photo', dataUrl);
-
-    // Update buttons to Send/Retake
-    this.captureBtn.destroy();
-    this.closeBtn.destroy();
-
-    const buttonY = frameY + frameHeight + 80;
-    this.sendBtn = this.createButton(width / 2 - 110, buttonY, 200, 60, 'SEND', 0x8b4513);
-    this.sendBtn.on('pointerdown', () => this.sendPhoto());
-
-    this.retakeBtn = this.createButton(width / 2 + 110, buttonY, 200, 60, 'RETAKE', 0x6b4423);
-    this.retakeBtn.on('pointerdown', () => this.retakePhoto());
-  }
-
-  retakePhoto() {
-    // Remove preview
-    if (this.previewImage) {
-      this.previewImage.destroy();
-      this.previewImage = null;
-    }
-
-    // Show video again
-    if (this.videoElement) {
-      this.videoElement.style.display = 'block';
-    }
-
-    // Restore capture/close buttons
-    this.sendBtn.destroy();
-    this.retakeBtn.destroy();
-
-    const width = this.cameras.main.width;
-    const frameWidth = width - 80;
-    const frameHeight = (frameWidth * 4) / 3;
-    const buttonY = 100 + frameHeight + 80;
-    
-    this.captureBtn = this.createButton(width / 2 - 110, buttonY, 200, 60, 'CAPTURE', 0x8b4513);
-    this.captureBtn.on('pointerdown', () => this.capturePhoto());
-    
-    this.closeBtn = this.createButton(width / 2 + 110, buttonY, 200, 60, 'CLOSE', 0x6b4423);
-    this.closeBtn.on('pointerdown', () => this.closeCamera());
-  }
-
-  sendPhoto() {
-    if (this.capturedImage && this.onPhotoCallback) {
-      this.onPhotoCallback(this.capturedImage);
-    }
-    this.closeCamera();
-  }
 
   closeCamera() {
     this.cleanup();

@@ -602,14 +602,18 @@ export default class MainScene extends Phaser.Scene {
       stroke: '#000',
       strokeThickness: 4
     }).setOrigin(0.5);
+    feedbackText.setDepth(950); // Below speech bubble but above most things
 
-    this.tweens.add({
-      targets: feedbackText,
-      alpha: 0,
-      y: 300,
-      duration: 1500,
-      ease: 'Power2',
-      onComplete: () => feedbackText.destroy()
+    // Keep visible for 6 seconds, then fade out over 2 seconds
+    this.time.delayedCall(6000, () => {
+      this.tweens.add({
+        targets: feedbackText,
+        alpha: 0,
+        y: 320,
+        duration: 2000,
+        ease: 'Power2',
+        onComplete: () => feedbackText.destroy()
+      });
     });
   }
 
@@ -751,7 +755,7 @@ export default class MainScene extends Phaser.Scene {
     const bubbleWidth = 400;
     const bubbleHeight = 120;
     const bubbleX = spriteX;
-    const bubbleY = spriteY - 150;
+    const bubbleY = spriteY + 180; // Moved below khulark
 
     // Create container for speech bubble
     this.speechBubble = this.add.container(bubbleX, bubbleY);
@@ -772,11 +776,11 @@ export default class MainScene extends Phaser.Scene {
     bubble.lineStyle(2, 0x6b5020, 0.8);
     bubble.strokeRoundedRect(-bubbleWidth / 2 + 4, -bubbleHeight / 2 + 4, bubbleWidth - 8, bubbleHeight - 8, 6);
     
-    // Pointer to khulark
+    // Pointer to khulark (now pointing up)
     bubble.fillStyle(0x2a2a2a, 1);
-    bubble.fillTriangle(0, bubbleHeight / 2 - 2, -15, bubbleHeight / 2 + 15, 15, bubbleHeight / 2 + 15);
+    bubble.fillTriangle(0, -bubbleHeight / 2 + 2, -15, -bubbleHeight / 2 - 15, 15, -bubbleHeight / 2 - 15);
     bubble.lineStyle(4, 0xd97706, 1);
-    bubble.strokeTriangle(0, bubbleHeight / 2 - 2, -15, bubbleHeight / 2 + 15, 15, bubbleHeight / 2 + 15);
+    bubble.strokeTriangle(0, -bubbleHeight / 2 + 2, -15, -bubbleHeight / 2 - 15, 15, -bubbleHeight / 2 - 15);
 
     // Text
     const speechText = this.add.text(0, 0, text, {
@@ -806,8 +810,8 @@ export default class MainScene extends Phaser.Scene {
     );
     bubble.on('pointerdown', () => this.hideSpeechBubble());
 
-    // Auto-dismiss after 5 seconds
-    this.time.delayedCall(5000, () => this.hideSpeechBubble());
+    // Auto-dismiss after 8 seconds (longer to read both speech and alert)
+    this.time.delayedCall(8000, () => this.hideSpeechBubble());
   }
 
   hideSpeechBubble() {

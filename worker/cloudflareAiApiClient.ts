@@ -21,6 +21,7 @@ export class CloudflareAiApiClient {
     console.log('[AI Client] Making request to:', url);
     console.log('[AI Client] Model:', model);
     console.log('[AI Client] Input type:', typeof input);
+    console.log('[AI Client] Input object:', JSON.stringify(input, null, 2));
     
     const body = JSON.stringify(input);
     console.log('[AI Client] Request body length:', body.length, 'chars');
