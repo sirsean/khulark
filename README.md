@@ -113,10 +113,11 @@ The Khulark's appearance changes based on hunger:
 - AI-driven responses
 - Stat effects based on tone
 
-### Phase 4: Photo Feeding (Planned)
-- Camera integration
-- Vision API for food recognition
-- Humorous non-food responses
+### Phase 4: Photo Feeding ✅
+- In-game camera overlay with retro UI for capturing food photos
+- Worker endpoint that accepts photo uploads and runs vision/AI classification
+- Stat changes and humorous reactions based on what the khulark "sees" (including non-food)
+- Processing overlay, sounds, and cooldown tied into the existing feed loop
 
 ## License
 
