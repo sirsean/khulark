@@ -4,9 +4,9 @@ const SAVE_VERSION = 1;
 const DEFAULT_STATE = {
   version: SAVE_VERSION,
   khulark: {
-    hunger: 100,
+    hunger: 50,
     affection: 50,
-    sanity: 60,
+    sanity: 50,
     lastSeenAt: Date.now(),
     bodyState: 'normal'
   },
