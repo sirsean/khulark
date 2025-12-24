@@ -10,7 +10,11 @@ const config = {
   width: 720,
   height: 1280,
   scale: {
-    mode: Phaser.Scale.ENVELOP,
+    // Use FIT so the full vertical layout (title, bars, khulark, button)
+    // is always visible, even on wide desktop viewports. This keeps the
+    // mobile portrait aspect ratio but adds letterboxing on desktop
+    // instead of cropping off the top/bottom.
+    mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH
   },
   scene: [BootScene, PreloadScene, MainScene, CameraOverlay],
