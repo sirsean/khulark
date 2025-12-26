@@ -628,7 +628,7 @@ export default class MainScene extends Phaser.Scene {
         this.tweens.add({
           targets: bar,
           currentWidth: fillWidth,
-          duration: 300,
+          duration: 800,
           ease: 'Cubic.easeOut',
           onUpdate: () => {
             bar.barFill.clear();
@@ -1042,7 +1042,7 @@ export default class MainScene extends Phaser.Scene {
     this.tweens.add({
       targets: tempStat,
       value: toValue,
-      duration: 800,
+      duration: 1400,
       ease: 'Cubic.easeOut',
       onUpdate: () => {
         const fillWidth = (tempStat.value / 100) * bar.barWidth;
