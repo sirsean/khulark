@@ -749,13 +749,14 @@ export default class MainScene extends Phaser.Scene {
     }).setOrigin(0.5);
     feedbackText.setDepth(950); // Below speech bubble but above most things
 
-    // Keep visible for 6 seconds, then fade out over 2 seconds
-    this.time.delayedCall(6000, () => {
+    // Allow player to tap the text to clear it
+    feedbackText.setInteractive();
+    feedbackText.on('pointerdown', () => {
       this.tweens.add({
         targets: feedbackText,
         alpha: 0,
         y: 320,
-        duration: 2000,
+        duration: 200,
         ease: 'Power2',
         onComplete: () => feedbackText.destroy()
       });
@@ -954,9 +955,6 @@ export default class MainScene extends Phaser.Scene {
       Phaser.Geom.Rectangle.Contains
     );
     bubble.on('pointerdown', () => this.hideSpeechBubble());
-
-    // Auto-dismiss after 8 seconds (longer to read both speech and alert)
-    this.time.delayedCall(8000, () => this.hideSpeechBubble());
   }
 
   hideSpeechBubble() {
