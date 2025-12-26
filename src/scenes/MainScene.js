@@ -470,17 +470,26 @@ export default class MainScene extends Phaser.Scene {
     }
 
     this.lastPetTime = now;
-    const result = this.gameState.modifyStat('affection', 10);
-    
-    if (result) {
-      this.tweenStat('affection', result.oldValue, result.newValue);
+
+    const affectionAmount = 10;
+    const sanityAmount = affectionAmount / 2;
+
+    const affectionResult = this.gameState.modifyStat('affection', affectionAmount);
+    if (affectionResult) {
+      this.tweenStat('affection', affectionResult.oldValue, affectionResult.newValue);
+    }
+
+    const sanityResult = this.gameState.modifyStat('sanity', sanityAmount);
+    if (sanityResult) {
+      this.tweenStat('sanity', sanityResult.oldValue, sanityResult.newValue);
     }
     
     // Particles and audio
     const spriteX = this.khularkSprite.x;
     const spriteY = this.khularkSprite.y;
     this.particleManager.emitHearts(spriteX, spriteY - 50);
-    this.particleManager.emitStatChange(spriteX, spriteY - 80, '+10', '#ff69b4');
+    this.particleManager.emitStatChange(spriteX, spriteY - 80, `+${affectionAmount}`, '#ff69b4');
+    this.particleManager.emitStatChange(spriteX + 30, spriteY - 80, `+${sanityAmount}`, '#a3e635');
     this.particleManager.emitRipple(spriteX, spriteY);
     this.audioManager.playPet();
     
