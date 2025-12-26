@@ -108,12 +108,16 @@ export default class CameraOverlay extends Phaser.Scene {
   }
 
   createButtons(width, buttonY) {
-    // Capture button
-    this.captureBtn = this.createButton(width / 2 - 110, buttonY, 200, 60, 'CAPTURE', 0x8b4513);
+    // Stack buttons vertically in the center
+    const centerX = width / 2;
+
+    // FEED button (primary, larger)
+    this.captureBtn = this.createButton(centerX, buttonY, 260, 70, 'FEED', 0x8b4513);
     this.captureBtn.on('pointerdown', () => this.capturePhoto());
-    
-    // Close button
-    this.closeBtn = this.createButton(width / 2 + 110, buttonY, 200, 60, 'CLOSE', 0x6b4423);
+
+    // ABORT button (secondary, smaller, below)
+    const abortY = buttonY + 80;
+    this.closeBtn = this.createButton(centerX, abortY, 200, 50, 'ABORT', 0x6b4423);
     this.closeBtn.on('pointerdown', () => this.closeCamera());
   }
 
