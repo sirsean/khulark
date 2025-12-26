@@ -13,6 +13,7 @@ export default class MainScene extends Phaser.Scene {
     this.statBars = {};
     this.lastFeedTime = 0;
     this.lastPetTime = 0;
+    this.feedCooldownMs = 0;
     this.decayTimer = null;
     this.lastDecayTime = Date.now();
     this.particleManager = null;
@@ -239,7 +240,7 @@ export default class MainScene extends Phaser.Scene {
 
     // Cooldown text (FringeV2)
     const cooldownText = this.add.text(0, 20, '', {
-      font: '12px "FringeV2", monospace',
+      font: '18px "FringeV2", monospace',
       fill: '#ffffff'
     }).setOrigin(0.5).setVisible(false);
 
@@ -399,10 +400,12 @@ export default class MainScene extends Phaser.Scene {
 
   handleFeed() {
     const now = Date.now();
-    const cooldown = 30000; // 30 seconds
+    const cooldown = this.feedCooldownMs || 0;
 
-    if (now - this.lastFeedTime < cooldown) {
-      this.showFeedback('Too soon! Wait a bit...', 0xff6b6b);
+    if (cooldown > 0 && this.lastFeedTime > 0 && now - this.lastFeedTime < cooldown) {
+      const remainingMs = cooldown - (now - this.lastFeedTime);
+      const remainingSec = Math.max(1, Math.ceil(remainingMs / 1000));
+      this.showFeedback(`Too soon! Wait ${remainingSec}s...`, 0xff6b6b);
       this.audioManager.playWarning();
       return;
     }
@@ -422,6 +425,21 @@ export default class MainScene extends Phaser.Scene {
 
     // Upload and process photo
     const response = await this.feedingSystem.uploadPhoto(imageBlob);
+
+    // Determine dynamic cooldown based on how strong the stat changes were
+    const hungerDelta = response.hunger || 0;
+    const affectionDelta = response.affection || 0;
+    const sanityDelta = response.sanity || 0;
+    const totalDeltaMagnitude = Math.abs(hungerDelta + affectionDelta + sanityDelta);
+
+    // Map totalDeltaMagnitude to a cooldown between 1s and 10s
+    const MIN_COOLDOWN_MS = 1000;
+    const MAX_COOLDOWN_MS = 10000;
+    const MAX_DELTA_FOR_SCALING = 30; // >= this treated as "very strong" interaction
+
+    const t = Math.max(0, Math.min(1, totalDeltaMagnitude / MAX_DELTA_FOR_SCALING));
+    const cooldownMs = Math.round(MIN_COOLDOWN_MS + (MAX_COOLDOWN_MS - MIN_COOLDOWN_MS) * t);
+    this.feedCooldownMs = cooldownMs;
 
     // Update UI with response
     const stats = this.gameState.getKhularkStats();
@@ -454,8 +472,8 @@ export default class MainScene extends Phaser.Scene {
         response.sanity > 0 ? '#a3e635' : '#ff6b6b');
     }
 
-    // Show cooldown
-    this.showButtonCooldown(this.buttons.feed, 30000);
+    // Show cooldown based on computed value (short for small changes, longer for big ones)
+    this.showButtonCooldown(this.buttons.feed, this.feedCooldownMs);
   }
 
   handlePet() {
@@ -1085,7 +1103,7 @@ export default class MainScene extends Phaser.Scene {
 
       // Update cooldown display
       const seconds = Math.ceil(remaining / 1000);
-      cooldownText.setText(seconds + 's');
+      cooldownText.setText(String(seconds));
 
       // Draw progress overlay (fills from top down)
       overlay.clear();
